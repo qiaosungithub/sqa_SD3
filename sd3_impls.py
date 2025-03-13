@@ -443,21 +443,21 @@ class ResnetBlock(torch.nn.Module):
         self.swish = torch.nn.SiLU(inplace=True)
 
     def forward(self, x):
-        print(f"In ResnetBlock, pos 0")
+        print(f"In ResnetBlock, pos 0, x shape: {x.shape}")
         hidden = x
         hidden = self.norm1(hidden)
-        print(f"In ResnetBlock, pos 1")
+        print(f"In ResnetBlock, pos 1, hidden shape: {hidden.shape}")
         hidden = self.swish(hidden)
         hidden = self.conv1(hidden)
-        print(f"In ResnetBlock, pos 2")
+        print(f"In ResnetBlock, pos 2, hidden shape: {hidden.shape}")
         hidden = self.norm2(hidden)
-        print(f"In ResnetBlock, pos 3")
+        print(f"In ResnetBlock, pos 3, hidden shape: {hidden.shape}")
         hidden = self.swish(hidden)
         hidden = self.conv2(hidden)
-        print(f"In ResnetBlock, pos 4")
+        print(f"In ResnetBlock, pos 4, hidden shape: {hidden.shape}")
         if self.in_channels != self.out_channels:
             x = self.nin_shortcut(x)
-        print(f"In ResnetBlock, pos 5")
+        print(f"In ResnetBlock, pos 5, x shape: {x.shape}")
         return x + hidden
 
 
@@ -733,29 +733,29 @@ class VAEDecoder(torch.nn.Module):
         print(f"Number of parameters of VAE decoder: {num_params}")
 
     def forward(self, z):
-        print(f"pos1")
+        print(f"pos1, z shape: {z.shape}")
         # z to block_in
         hidden = self.conv_in(z)
-        print(f"pos2")
+        print(f"pos2, hidden shape: {hidden.shape}")
         # middle
         hidden = self.mid.block_1(hidden)
-        print(f"pos2.1")
+        print(f"pos3, hidden shape: {hidden.shape}")
         hidden = self.mid.attn_1(hidden)
-        print(f"pos2.2")
+        print(f"pos4, hidden shape: {hidden.shape}")
         hidden = self.mid.block_2(hidden)
-        print(f"pos3")
+        print(f"pos5, hidden shape: {hidden.shape}")
         # upsampling
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(self.num_res_blocks + 1):
                 hidden = self.up[i_level].block[i_block](hidden)
             if i_level != 0:
                 hidden = self.up[i_level].upsample(hidden)
-        print(f"pos4")
+        print(f"pos6, hidden shape: {hidden.shape}")
         # end
         hidden = self.norm_out(hidden)
         hidden = self.swish(hidden)
         hidden = self.conv_out(hidden)
-        print(f"pos5")
+        print(f"pos7, hidden shape: {hidden.shape}")
         return hidden
 
 
