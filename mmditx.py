@@ -899,16 +899,31 @@ class MMDiTX(nn.Module):
         t: (N,) tensor of diffusion timesteps
         y: (N,) tensor of class labels
         """
+        # print(f"\n\nin forward. pos 0: x shape: {x.shape}")
+        # print(f"t shape: {t.shape}")
+        # print(f"y shape: {y.shape}")
+        # print(f"context shape: {context.shape}")
+        # print(f"controlnet_hidden_states: {controlnet_hidden_states}")
+        # print(f"skip_layers: {skip_layers}")
         hw = x.shape[-2:]
         x = self.x_embedder(x) + self.cropped_pos_embed(hw)
+        # print(f"\n\npos 1: x shape: {x.shape}")
         c = self.t_embedder(t, dtype=x.dtype)  # (N, D)
+        # print(f"\n\npos 2: c shape: {c.shape}")
         if y is not None:
             y = self.y_embedder(y)  # (N, D)
             c = c + y  # (N, D)
+        # print(f"\n\npos 3: y shape: {y.shape}, c shape: {c.shape}")
 
         context = self.context_embedder(context)
 
+        # print(f"\n\npos 4: context shape: {context.shape}")
+
         x = self.forward_core_with_concat(x, c, context, skip_layers, controlnet_hidden_states)
 
+        # print(f"\n\npos 5: x shape: {x.shape}")
+
         x = self.unpatchify(x, hw=hw)  # (N, out_channels, H, W)
+
+        # print(f"\n\npos 6: x shape: {x.shape}\n\n")
         return x

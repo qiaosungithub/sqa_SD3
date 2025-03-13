@@ -1,3 +1,29 @@
+Written by sqa
+
+try to run SD3 on cpu, using conda `sqa`
+
+We will try SD3.5-medium, with no controlnets
+
+sanity check:
+
+```sh
+python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model models/sd3.5_medium.safetensors
+
+# for debug
+conda activate sqa
+python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model models/sd3.5_medium.safetensors --steps 1
+```
+
+environment details: I use `torch 2.6.0`. `torch 2.2.2` cannot work. This is because Layernorm cannot be done in bf16 in legacy version.
+
+# Number of parameters
+
+VAE encoder: 34M (34,274,208)
+VAE decoder: 49M (49,545,475)
+SD3-medium Base model: 2.2B (2,243,171,520)
+
+Official documents:
+
 # Stable Diffusion 3.5
 
 Inference-only tiny reference implementation of SD3.5 and SD3 - everything you need for simple inference using SD3.5/SD3, as well as the SD3.5 Large ControlNets, excluding the weights files.

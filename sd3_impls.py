@@ -49,6 +49,7 @@ class ModelSamplingDiscreteFlow(torch.nn.Module):
 
     def calculate_denoised(self, sigma, model_output, model_input):
         sigma = sigma.view(sigma.shape[:1] + (1,) * (model_output.ndim - 1))
+        # print(model_input.shape, model_output.shape, sigma.shape)
         return model_input - model_output * sigma
 
     def noise_scaling(self, sigma, noise, latent_image, max_denoise=False):
@@ -150,6 +151,12 @@ class BaseModel(torch.nn.Module):
                 dtype=dtype,
             )
 
+        # print number of parameters
+        num_params = 0
+        for param in self.parameters():
+            num_params += param.numel()
+        print(f"Number of parameters of SD3 Base model: {num_params}")
+
     def apply_model(self, x, sigma, c_crossattn=None, y=None, skip_layers=[], controlnet_cond=None):
         dtype = self.get_dtype()
         timestep = self.model_sampling.timestep(sigma).float()
@@ -177,6 +184,10 @@ class BaseModel(torch.nn.Module):
             controlnet_hidden_states=controlnet_hidden_states,
             skip_layers=skip_layers,
         ).float()
+        print(f"sigma shape: {sigma.shape}, model_output shape: {model_output.shape}, x shape: {x.shape}")
+        # x shape (2, 16, 135, 240), model_output shape (2, 16, 134, 240), shape of down-sample is wrong, why?
+        # this is because for shape (1920, 1080), after vae its (135, 240), but using patch size 2 cannot divide 135.
+        # this is tang.
         return self.model_sampling.calculate_denoised(sigma, model_output, x)
 
     def forward(self, *args, **kwargs):
@@ -432,15 +443,21 @@ class ResnetBlock(torch.nn.Module):
         self.swish = torch.nn.SiLU(inplace=True)
 
     def forward(self, x):
+        print(f"In ResnetBlock, pos 0")
         hidden = x
         hidden = self.norm1(hidden)
+        print(f"In ResnetBlock, pos 1")
         hidden = self.swish(hidden)
         hidden = self.conv1(hidden)
+        print(f"In ResnetBlock, pos 2")
         hidden = self.norm2(hidden)
+        print(f"In ResnetBlock, pos 3")
         hidden = self.swish(hidden)
         hidden = self.conv2(hidden)
+        print(f"In ResnetBlock, pos 4")
         if self.in_channels != self.out_channels:
             x = self.nin_shortcut(x)
+        print(f"In ResnetBlock, pos 5")
         return x + hidden
 
 
@@ -612,6 +629,12 @@ class VAEEncoder(torch.nn.Module):
         )
         self.swish = torch.nn.SiLU(inplace=True)
 
+        # print number of parameters
+        num_params = 0
+        for param in self.parameters():
+            num_params += param.numel()
+        print(f"Number of parameters of VAE encoder: {num_params}")
+
     def forward(self, x):
         # downsampling
         hs = [self.conv_in(x)]
@@ -703,23 +726,36 @@ class VAEDecoder(torch.nn.Module):
         )
         self.swish = torch.nn.SiLU(inplace=True)
 
+        # print number of parameters
+        num_params = 0
+        for param in self.parameters():
+            num_params += param.numel()
+        print(f"Number of parameters of VAE decoder: {num_params}")
+
     def forward(self, z):
+        print(f"pos1")
         # z to block_in
         hidden = self.conv_in(z)
+        print(f"pos2")
         # middle
         hidden = self.mid.block_1(hidden)
+        print(f"pos2.1")
         hidden = self.mid.attn_1(hidden)
+        print(f"pos2.2")
         hidden = self.mid.block_2(hidden)
+        print(f"pos3")
         # upsampling
         for i_level in reversed(range(self.num_resolutions)):
             for i_block in range(self.num_res_blocks + 1):
                 hidden = self.up[i_level].block[i_block](hidden)
             if i_level != 0:
                 hidden = self.up[i_level].upsample(hidden)
+        print(f"pos4")
         # end
         hidden = self.norm_out(hidden)
         hidden = self.swish(hidden)
         hidden = self.conv_out(hidden)
+        print(f"pos5")
         return hidden
 
 

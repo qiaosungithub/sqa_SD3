@@ -126,7 +126,7 @@ T5_CONFIG = {
 class T5XXL:
     def __init__(self, model_folder: str, device: str = "cpu", dtype=torch.float32):
         with safe_open(
-            f"{model_folder}/t5xxl.safetensors", framework="pt", device="cpu"
+            f"{model_folder}/t5xxl_fp16.safetensors", framework="pt", device="cpu" # wrong name ?
         ) as f:
             self.model = T5XXLModel(T5_CONFIG, device=device, dtype=dtype)
             load_into(f, self.model.transformer, "", device, dtype)
@@ -165,12 +165,12 @@ class SD3:
                 shift=shift,
                 file=f,
                 prefix="model.diffusion_model.",
-                device="cuda",
+                device="cpu",
                 dtype=torch.float16,
                 control_model_ckpt=control_model_ckpt,
                 verbose=verbose,
             ).eval()
-            load_into(f, self.model, "model.", "cuda", torch.float16)
+            load_into(f, self.model, "model.", "cpu", torch.float16)
         if control_model_file is not None:
             control_model_ckpt = safe_open(
                 control_model_file, framework="pt", device=device
@@ -278,12 +278,12 @@ class SD3Inferencer:
             print("Loading OpenCLIP bigG...")
             self.clip_g = ClipG(model_folder, text_encoder_device)
         print(f"Loading SD3 model {os.path.basename(model)}...")
-        self.sd3 = SD3(model, shift, controlnet_ckpt, verbose, "cuda")
+        self.sd3 = SD3(model, shift, controlnet_ckpt, verbose, "cpu")
         print("Loading VAE model...")
         self.vae = VAE(vae or model)
         print("Models loaded.")
 
-    def get_empty_latent(self, batch_size, width, height, seed, device="cuda"):
+    def get_empty_latent(self, batch_size, width, height, seed, device="cpu"):
         self.print("Prep an empty latent...")
         shape = (batch_size, 16, height // 8, width // 8)
         latents = torch.zeros(shape, device=device)
@@ -334,7 +334,7 @@ class SD3Inferencer:
         return math.isclose(max_sigma, sigma, rel_tol=1e-05) or sigma > max_sigma
 
     def fix_cond(self, cond):
-        cond, pooled = (cond[0].half().cuda(), cond[1].half().cuda())
+        cond, pooled = (cond[0].half().cpu(), cond[1].half().cpu())
         return {"c_crossattn": cond, "y": pooled}
 
     def do_sampling(
@@ -351,10 +351,10 @@ class SD3Inferencer:
         skip_layer_config={},
     ) -> torch.Tensor:
         self.print("Sampling...")
-        latent = latent.half().cuda()
-        self.sd3.model = self.sd3.model.cuda()
-        noise = self.get_noise(seed, latent).cuda()
-        sigmas = self.get_sigmas(self.sd3.model.model_sampling, steps).cuda()
+        latent = latent.half().cpu()
+        self.sd3.model = self.sd3.model.cpu()
+        noise = self.get_noise(seed, latent).cpu()
+        sigmas = self.get_sigmas(self.sd3.model.model_sampling, steps).cpu()
         sigmas = sigmas[int(steps * (1 - denoise)) :]
         conditioning = self.fix_cond(conditioning)
         neg_cond = self.fix_cond(neg_cond)
@@ -392,15 +392,15 @@ class SD3Inferencer:
         image_np = np.array(image).astype(np.float32) / 255.0
         image_np = np.moveaxis(image_np, 2, 0)
         batch_images = np.expand_dims(image_np, axis=0).repeat(1, axis=0)
-        image_torch = torch.from_numpy(batch_images).cuda()
+        image_torch = torch.from_numpy(batch_images).cpu()
         if using_2b_controlnet:
             image_torch = image_torch * 2.0 - 1.0
         elif controlnet_type == 1:  # canny
             image_torch = image_torch * 255 * 0.5 + 0.5
         else:
             image_torch = 2.0 * image_torch - 1.0
-        image_torch = image_torch.cuda()
-        self.vae.model = self.vae.model.cuda()
+        image_torch = image_torch.cpu()
+        self.vae.model = self.vae.model.cpu()
         latent = self.vae.model.encode(image_torch).cpu()
         self.vae.model = self.vae.model.cpu()
         self.print("Encoded")
@@ -411,11 +411,18 @@ class SD3Inferencer:
         latent = SD3LatentFormat().process_in(latent)
         return latent
 
-    def vae_decode(self, latent) -> Image.Image:
+    def vae_decode(self, latent:torch.tensor) -> Image.Image:
         self.print("Decoding latent to image...")
-        latent = latent.cuda()
-        self.vae.model = self.vae.model.cuda()
+        # print(f"dtype: {latent.dtype}")
+        # delete self.sd3 to save memory
+        del self.sd3
+        print("delete self.sd3")
+        # cast latent type to bf16
+        latent = latent.half()
+        latent = latent.cpu()
+        self.vae.model = self.vae.model.cpu()
         image = self.vae.model.decode(latent)
+        print("decode step finished")
         image = image.float()
         self.vae.model = self.vae.model.cpu()
         image = torch.clamp((image + 1.0) / 2.0, min=0.0, max=1.0)[0]
@@ -460,7 +467,7 @@ class SD3Inferencer:
             latent = self._image_to_latent(init_image, width, height)
         else:
             latent = self.get_empty_latent(1, width, height, seed, "cpu")
-            latent = latent.cuda()
+            latent = latent.cpu()
         if controlnet_cond_image:
             using_2b, control_type = False, 0
             if self.sd3.model.control_model is not None:
@@ -574,6 +581,7 @@ def main(
 ):
     assert not kwargs, f"Unknown arguments: {kwargs}"
 
+    ########### init, do config operations #############
     config = CONFIGS.get(os.path.splitext(os.path.basename(model))[0], {})
     _shift = shift or config.get("shift", 3)
     _steps = steps or config.get("steps", 50)
@@ -599,6 +607,7 @@ def main(
 
     inferencer = SD3Inferencer()
 
+    ########### load models #############
     inferencer.load(
         model,
         vae,
@@ -632,6 +641,11 @@ def main(
     )
 
     os.makedirs(out_dir, exist_ok=False)
+
+    # # debug vae
+    # latent = torch.zeros((1, 16, 128, 128), device="cpu", dtype=torch.float16)
+    # x = inferencer.vae.model.decode(latent)
+    # exit("邓")
 
     inferencer.gen_image(
         prompts,
