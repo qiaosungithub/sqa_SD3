@@ -12,8 +12,14 @@ Pretrained model & text encoders are in `/kmh-nfs-ssd-eu-mount/data/SD3.5_pretra
 python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model /kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_medium.safetensors
 
 # for debug
+# this will save latent into /latent_save/latent_0.pt
 conda activate sqa
 python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model /kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_medium.safetensors --steps 1
+
+# for decode latent
+conda activate sqa
+python3 sd3_decode_latent.py --prompt "cute wallpaper art of a cat" --model /kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_medium.safetensors --steps 1
+
 ```
 
 # Environment details: 
