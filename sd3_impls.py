@@ -344,7 +344,7 @@ def to_d(x, sigma, denoised):
 
 
 @torch.no_grad()
-@torch.autocast("cuda", dtype=torch.float16)
+@torch.autocast("cpu", dtype=torch.float16)
 def sample_euler(model, x, sigmas, extra_args=None):
     """Implements Algorithm 2 (Euler steps) from Karras et al. (2022)."""
     extra_args = {} if extra_args is None else extra_args
@@ -360,7 +360,7 @@ def sample_euler(model, x, sigmas, extra_args=None):
 
 
 @torch.no_grad()
-@torch.autocast("cuda", dtype=torch.float16)
+@torch.autocast("cpu", dtype=torch.float16)
 def sample_dpmpp_2m(model, x, sigmas, extra_args=None):
     """DPM-Solver++(2M)."""
     extra_args = {} if extra_args is None else extra_args
@@ -765,11 +765,11 @@ class SDVAE(torch.nn.Module):
         self.encoder = VAEEncoder(dtype=dtype, device=device)
         self.decoder = VAEDecoder(dtype=dtype, device=device)
 
-    @torch.autocast("cuda", dtype=torch.float16)
+    @torch.autocast("cpu", dtype=torch.float16)
     def decode(self, latent):
         return self.decoder(latent)
 
-    @torch.autocast("cuda", dtype=torch.float16)
+    @torch.autocast("cpu", dtype=torch.float16)
     def encode(self, image):
         hidden = self.encoder(image)
         mean, logvar = torch.chunk(hidden, 2, dim=1)
