@@ -4,17 +4,21 @@ try to run SD3 on cpu, using conda `sqa`
 
 We will try SD3.5-medium, with no controlnets
 
-sanity check:
+Pretrained model & text encoders are in `/kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models`
+
+# sanity check:
 
 ```sh
-python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model models/sd3.5_medium.safetensors
+python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model /kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_medium.safetensors
 
 # for debug
 conda activate sqa
-python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model models/sd3.5_medium.safetensors --steps 1
+python3 sd3_infer.py --prompt "cute wallpaper art of a cat" --model /kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_medium.safetensors --steps 1
 ```
 
-environment details: I use `torch 2.6.0`. `torch 2.2.2` cannot work. This is because Layernorm cannot be done in bf16 in legacy version.
+# Environment details: 
+
+I use `torch 2.6.0`. `torch 2.2.2` cannot work. This is because Layernorm cannot be done in bf16 in legacy version.
 
 # Number of parameters
 

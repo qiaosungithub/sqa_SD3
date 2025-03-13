@@ -227,7 +227,7 @@ SEEDTYPE = "rand"
 # Actual model file path
 # MODEL = "models/sd3_medium.safetensors"
 # MODEL = "models/sd3.5_large_turbo.safetensors"
-MODEL = "models/sd3.5_large.safetensors"
+MODEL = "/kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models/sd3.5_large.safetensors"
 # VAE model file path, or set None to use the same model file
 VAEFile = None  # "models/sd3_vae.safetensors"
 # Optional init image file path
@@ -241,7 +241,7 @@ OUTDIR = "outputs"
 # SAMPLER
 SAMPLER = "dpmpp_2m"
 # MODEL FOLDER
-MODEL_FOLDER = "models"
+MODEL_FOLDER = "/kmh-nfs-ssd-eu-mount/data/SD3.5_pretrained_models"
 
 
 class SD3Inferencer:
@@ -461,6 +461,7 @@ class SD3Inferencer:
         init_image=INIT_IMAGE,
         denoise=DENOISE,
         skip_layer_config={},
+        latent_save_only=False, # save latent only
     ):
         controlnet_cond = None
         if init_image:
@@ -499,11 +500,18 @@ class SD3Inferencer:
                 denoise if init_image else 1.0,
                 skip_layer_config,
             )
-            image = self.vae_decode(sampled_latent)
-            save_path = os.path.join(out_dir, f"{i:06d}.png")
-            self.print(f"Saving to to {save_path}")
-            image.save(save_path)
-            self.print("Done")
+            if latent_save_only:
+                latent_save_path = f"/kmh-nfs-ssd-eu-mount/code/qiao/work/sqa_SD3/latent_save/latent_{i}.pt"
+                if not os.path.exists(os.path.dirname(latent_save_path)):
+                    os.makedirs(os.path.dirname(latent_save_path))
+                torch.save(sampled_latent, latent_save_path)
+                continue
+            else:
+                image = self.vae_decode(sampled_latent)
+                save_path = os.path.join(out_dir, f"{i:06d}.png")
+                self.print(f"Saving to to {save_path}")
+                image.save(save_path)
+                self.print("Done")
 
 
 CONFIGS = {
@@ -661,6 +669,7 @@ def main(
         init_image,
         denoise,
         skip_layer_config,
+        latent_save_only=True,
     )
 
 
