@@ -34,16 +34,21 @@ from tqdm import tqdm
 
 
 def load_into(ckpt, model, prefix, device, dtype=None, remap=None):
-    """Just a debugging-friendly hack to apply the weights in a safetensors file to the pytorch module."""
+    """Just a debugging-friendly hack to apply the weights in a safetensors file to the pytorch module.
+    
+    ckpt: an opened safe_open file
+    model: the pytorch model
+    prefix: the prefix in the safetensors file
+    """
     for key in ckpt.keys():
         model_key = key
         if remap is not None and key in remap:
             model_key = remap[key]
         if model_key.startswith(prefix) and not model_key.startswith("loss."):
-            path = model_key[len(prefix) :].split(".")
+            path = model_key[len(prefix) :].split(".") # remove prefix, split into list
             obj = model
             for p in path:
-                if obj is list:
+                if obj is list: # when obj is Module list
                     obj = obj[int(p)]
                 else:
                     obj = getattr(obj, p, None)
@@ -52,10 +57,10 @@ def load_into(ckpt, model, prefix, device, dtype=None, remap=None):
                             f"Skipping key '{model_key}' in safetensors file as '{p}' does not exist in python model"
                         )
                         break
-            if obj is None:
+            if obj is None: # not get
                 continue
             try:
-                tensor = ckpt.get_tensor(key).to(device=device)
+                tensor = ckpt.get_tensor(key).to(device=device) # get the tensor
                 if dtype is not None and tensor.dtype != torch.int32:
                     tensor = tensor.to(dtype=dtype)
                 obj.requires_grad_(False)
@@ -64,7 +69,7 @@ def load_into(ckpt, model, prefix, device, dtype=None, remap=None):
                     print(
                         f"W: shape mismatch for key {model_key}, {obj.shape} != {tensor.shape}"
                     )
-                obj.set_(tensor)
+                obj.set_(tensor) # set into params
             except Exception as e:
                 print(f"Failed to load key '{key}' in safetensors file: {e}")
                 raise e
@@ -197,6 +202,7 @@ class VAE:
         with safe_open(model, framework="pt", device="cpu") as f:
             self.model = SDVAE(device="cpu", dtype=dtype).eval().cpu()
             prefix = ""
+            # if assembled in SD3 model, prefix is "first_stage_model."
             if any(k.startswith("first_stage_model.") for k in f.keys()):
                 prefix = "first_stage_model."
             load_into(f, self.model, prefix, "cpu", dtype)
