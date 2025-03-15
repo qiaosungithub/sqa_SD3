@@ -19,6 +19,8 @@ from typing import Tuple
 ### MMDiT Model Wrapping
 #################################################################################################
 
+def print_tensor(x:torch.tensor):
+    print(f"mean: {torch.mean(x)}, square mean: {torch.mean(x**2)}, max: {torch.max(x)}, min: {torch.min(x)}")
 
 class ModelSamplingDiscreteFlow(torch.nn.Module):
     """Helper for sampler scheduling (ie timestep/sigma calculations) for Discrete Flow models"""
@@ -636,6 +638,8 @@ class VAEEncoder(torch.nn.Module):
         print(f"Number of parameters of VAE encoder: {num_params}")
 
     def forward(self, x):
+        print(f"enter forward")
+        print_tensor(x)
         # downsampling
         hs = [self.conv_in(x)]
         for i_level in range(self.num_resolutions):
@@ -644,15 +648,21 @@ class VAEEncoder(torch.nn.Module):
                 hs.append(h)
             if i_level != self.num_resolutions - 1:
                 hs.append(self.down[i_level].downsample(hs[-1]))
+        print(f"finish downsampling")
+        print_tensor(hs[-1])
         # middle
         h = hs[-1]
         h = self.mid.block_1(h)
         h = self.mid.attn_1(h)
         h = self.mid.block_2(h)
+        print(f"finish middle")
+        print_tensor(h)
         # end
         h = self.norm_out(h)
         h = self.swish(h)
         h = self.conv_out(h)
+        print(f"exit forward")
+        print_tensor(h)
         return h
 
 
@@ -776,4 +786,5 @@ class SDVAE(torch.nn.Module):
         logvar = torch.clamp(logvar, -30.0, 20.0)
         std = torch.exp(0.5 * logvar)
         return mean + std * torch.randn_like(mean)
+        # return mean
 
